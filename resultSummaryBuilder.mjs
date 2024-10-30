@@ -1,9 +1,9 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFile, writeFile } from 'node:fs/promises';
 
-export function generateSummaryResults(resultFilePaths) {
+export async function generateSummaryResults(resultFilePaths) {
     for (const [filePath, outPath] of resultFilePaths) {
         const summary = {};
-        const data = JSON.parse(String(readFileSync(filePath)));
+        const data = JSON.parse(String(await readFile(filePath)));
         for (const [queryName, queries] of Object.entries(data["data"])) {
             summary[queryName] = {};
             for (const [versionName, version] of Object.entries(queries)) {
@@ -22,7 +22,7 @@ export function generateSummaryResults(resultFilePaths) {
                 const average = allExecutionTime.reduce((a, b) => a + b, 0) / allExecutionTime.length;
                 const min = Math.min(...allExecutionTime);
                 const max = Math.max(...allExecutionTime);
-                const std = getStandardDeviation(allExecutionTime);
+                const std = Math.sqrt(allExecutionTime.reduce((acc, current) => acc + Math.pow(current - average, 2)) / (allExecutionTime.length - 1));
                 summary[queryName][versionName]["execution_time"] = {
                     average,
                     min,
@@ -32,13 +32,6 @@ export function generateSummaryResults(resultFilePaths) {
             }
         }
         const prettySummary = JSON.stringify(summary, null, 2);
-        writeFileSync(outPath, prettySummary);
+        await writeFile(outPath, prettySummary);
     }
-}
-
-// https://stackoverflow.com/a/53577159
-function getStandardDeviation(array) {
-    const n = array.length
-    const mean = array.reduce((a, b) => a + b) / n
-    return Math.sqrt(array.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n)
 }

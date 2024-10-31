@@ -68,7 +68,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                     console.log(`New query started repetition(s) ${i} index ${queryName} version ${version} with engine ${configPath}`);
                     const command = createCommand(runnerCommand, configPath, query, memorySize, pathFragmentationFolder, timeout);
                     try {
-                        const { stdout, stderr, error } = spawnSync(command[0], command[1], { timeout: timeout + 1000, maxBuffer: undefined });
+                        const { stdout, stderr, error } = spawnSync(command[0], command[1], { timeout: timeout + 2000, maxBuffer: undefined });
                         if (error && error.code === 'ETIMEDOUT') {
                             currentResult[version] = {
                                 timeout: timeout,
@@ -115,7 +115,8 @@ function createCommand(runnerCommand, configPath, query, memorySize, pathFragmen
         runnerCommand,
         '-c', configPath,
         '-q', formattedQuery,
-        '-t', timeout.toString()
+        '-t', timeout.toString(),
+        '-w', String(10)
     ];
     if (pathFragmentationFolder !== undefined) {
         args.push("-hdt");

@@ -18,8 +18,9 @@ program
     .requiredOption('-e, --runnerCommand <string>', 'command of the runner to be executed. It must accept the flags -q, -c, -t and -hdt being a query, the config a timeout and an option to run an HDT benchmark with path to a fragmentation')
     .requiredOption('-o, --output <string>', 'result folder')
 
+    .option('-s, --sourceFile', 'path of the source file', undefined)
     .option('-q, --queryFolderPath <string>', 'path of the query to be executed', './queries')
-    .option('-t, --timeout <number>', 'Timeout of the query in second', 120 )
+    .option('-t, --timeout <number>', 'Timeout of the query in second', 120)
     .option('-m, --memorySize <number>', 'Timeout of the query in second', 8192 * 1.5)
     .option('-r, --repetition <number>', 'number of repetition of each queries', 50)
     .option('-hdt, --pathFragmentationFolder <string>', 'The path of the dataset folder for querying over HDT. When not specified, it will execute an LTQP query.')
@@ -35,6 +36,7 @@ const configPaths = JSON.parse(configFileText).data;
 const nRepetition = options.repetition;
 const runnerCommand = options.runnerCommand;
 const pathFragmentationFolder = options.pathFragmentationFolder;
+const sourceFile = options.sourceFile;
 
 const RESULT_FOLDER = options.output;
 
@@ -44,17 +46,22 @@ await buildQueries(queryFolderPath);
 await executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder);
 await generateSummaryResults(resultFilePaths);
 
-async function executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder) {
+async function executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder, sourceFile) {
     const queryFolder = join(queryFolderPath, "parsed");
     const queriesFile = await readdir(queryFolder);
-
+    let sources = undefined;
     const queries = [];
     for (const file of queriesFile) {
         if (file.includes(".gitkeep")) {
             continue;
         }
         const fileCompletePath = join(queryFolder, file);
-        queries.push([JSON.parse(await readFile(fileCompletePath)), fileCompletePath]);
+        const queryName = file.replace(/\.[^/.]+$/, "");
+        queries.push([JSON.parse(await readFile(fileCompletePath)), queryName]);
+    }
+
+    if (sourceFile !== undefined) {
+        sources = JSON.parse(await readFile(sourceFile))
     }
 
 
@@ -64,9 +71,17 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
             const currentResult = {};
             for (const [version, query] of Object.entries(queryObject)) {
                 currentResult[version] = [];
-                for (let i = 0; i < nRepetition ; ++i) {
+                for (let i = 0; i < nRepetition; ++i) {
                     console.log(`New query started repetition(s) ${i} index ${queryName} version ${version} with engine ${configPath}`);
-                    const command = createCommand(runnerCommand, configPath, query, memorySize, pathFragmentationFolder, timeout);
+                    const command = createCommand(
+                        runnerCommand,
+                        configPath,
+                        query,
+                        memorySize,
+                        pathFragmentationFolder,
+                        timeout,
+                        sources[queryName] === undefined ? undefined : sources[queryName][version]
+                    );
                     try {
                         const { stdout, stderr, error } = spawnSync(command[0], command[1], { timeout: timeout + 2000, maxBuffer: undefined });
                         if (error && error.code === 'ETIMEDOUT') {
@@ -106,7 +121,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
     }
 }
 
-function createCommand(runnerCommand, configPath, query, memorySize, pathFragmentationFolder, timeout) {
+function createCommand(runnerCommand, configPath, query, memorySize, pathFragmentationFolder, timeout, sources) {
     const command = "node";
     const formattedQuery = query.replace(/(\r\n|\n|\r)/gm, " ");
 
@@ -121,6 +136,10 @@ function createCommand(runnerCommand, configPath, query, memorySize, pathFragmen
     if (pathFragmentationFolder !== undefined) {
         args.push("-hdt");
         args.push(pathFragmentationFolder);
+    }
+    if (sources !== undefined) {
+        args.push("-s");
+        args.push(JSON.stringify(sources));
     }
     return [command, args];
 }

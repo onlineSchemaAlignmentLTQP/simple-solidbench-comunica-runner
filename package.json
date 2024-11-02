@@ -1,6 +1,6 @@
 {
   "name": "simple_comunica_benchmark_runner",
-  "packageManager": "yarn@4.1.1",
+  "packageManager": "yarn@4.5.1",
   "dependencies": {
     "commander": "^12.1.0"
   }

@@ -43,7 +43,7 @@ const RESULT_FOLDER = options.output;
 const resultFilePaths = configPaths.map((x) => [join('./', RESULT_FOLDER, `${x[1]}_result.json`), join('./', RESULT_FOLDER, `summary_${x[1]}_result.json`)]);
 
 await buildQueries(queryFolderPath);
-await executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder);
+await executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder, sourceFile);
 await generateSummaryResults(resultFilePaths);
 
 async function executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder, sourceFile) {
@@ -73,7 +73,10 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                 currentResult[version] = [];
                 for (let i = 0; i < nRepetition; ++i) {
                     console.log(`New query started repetition(s) ${i} index ${queryName} version ${version} with engine ${configPath}`);
-                    const effectiveSources = sources[queryName] === undefined ? undefined : sources[queryName][version];
+                    let effectiveSources = undefined;
+                    if (sources !== undefined) {
+                        effectiveSources = sources[queryName] === undefined ? undefined : sources[queryName][version];
+                    }
                     if (effectiveSources !== undefined && !Array.isArray(effectiveSources)) {
                         continue;
                     }

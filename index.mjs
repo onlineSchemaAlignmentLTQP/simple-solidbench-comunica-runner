@@ -73,6 +73,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                 currentResult[version] = [];
                 for (let i = 0; i < nRepetition; ++i) {
                     console.log(`New query started repetition(s) ${i} index ${queryName} version ${version} with engine ${configPath}`);
+                    const effectiveSources = sources[queryName] === undefined ? undefined : sources[queryName][version];
                     const command = createCommand(
                         runnerCommand,
                         configPath,
@@ -80,7 +81,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                         memorySize,
                         pathFragmentationFolder,
                         timeout,
-                        sources[queryName] === undefined ? undefined : sources[queryName][version]
+                        Array.isArray(effectiveSources)?effectiveSources:undefined
                     );
                     try {
                         const { stdout, stderr, error } = spawnSync(command[0], command[1], { timeout: timeout + 2000, maxBuffer: undefined });

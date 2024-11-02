@@ -18,7 +18,7 @@ program
     .requiredOption('-e, --runnerCommand <string>', 'command of the runner to be executed. It must accept the flags -q, -c, -t and -hdt being a query, the config a timeout and an option to run an HDT benchmark with path to a fragmentation')
     .requiredOption('-o, --output <string>', 'result folder')
 
-    .option('-s, --sourceFile', 'path of the source file', undefined)
+    .option('-s, --sourceFile <string>', 'path of the source file', undefined)
     .option('-q, --queryFolderPath <string>', 'path of the query to be executed', './queries')
     .option('-t, --timeout <number>', 'Timeout of the query in second', 120)
     .option('-m, --memorySize <number>', 'Timeout of the query in second', 8192 * 1.5)
@@ -56,7 +56,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
             continue;
         }
         const fileCompletePath = join(queryFolder, file);
-        const queryName = file.replace(/\.[^/.]+$/, "");
+        const queryName = file.replace(/\.[^/.]+$/, "").replace(/\.[^/.]+$/, "");
         queries.push([JSON.parse(await readFile(fileCompletePath)), queryName]);
     }
 

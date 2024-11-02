@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { Command } from 'commander';
 import { buildQueries } from './queryBuilder.mjs'
 import { generateSummaryResults } from './resultSummaryBuilder.mjs';
+import { backUpExperiment } from './backupIDlabCloud.mjs';
 
 const RESULT_REGEX = /response start\n(.*)\nresponse end/u;
 const HTTP_REQUEST_IDENTIFIER = "INFO: Requesting";
@@ -17,7 +18,9 @@ program
     .requiredOption('-c, --configFilePath <string>', 'Path of a config file containing a JSON array of the format {"data":[[${config Path}, ${name of the config}]]} to be executed')
     .requiredOption('-e, --runnerCommand <string>', 'command of the runner to be executed. It must accept the flags -q, -c, -t and -hdt being a query, the config a timeout and an option to run an HDT benchmark with path to a fragmentation')
     .requiredOption('-o, --output <string>', 'result folder')
+    .requiredOption('-n, --experimentName <string>', 'name of the experiment')
 
+    .option('-b, --cloudfolder <string>', 'will backup the experiment results to this cloud storage see ./cloudsend.sh script', undefined)
     .option('-s, --sourceFile <string>', 'path of the source file', undefined)
     .option('-q, --queryFolderPath <string>', 'path of the query to be executed', './queries')
     .option('-t, --timeout <number>', 'Timeout of the query in second', 120)
@@ -28,6 +31,7 @@ program
     .parse(process.argv);
 
 const options = program.opts();
+
 const queryFolderPath = options.queryFolderPath;
 const timeout = Number(options.timeout) * 1000;
 const memorySize = options.memorySize;
@@ -37,6 +41,8 @@ const nRepetition = options.repetition;
 const runnerCommand = options.runnerCommand;
 const pathFragmentationFolder = options.pathFragmentationFolder;
 const sourceFile = options.sourceFile;
+const experimentName = options.experimentName;
+const cloudfolder = options.cloudfolder;
 
 const RESULT_FOLDER = options.output;
 
@@ -45,6 +51,7 @@ const resultFilePaths = configPaths.map((x) => [join('./', RESULT_FOLDER, `${x[1
 await buildQueries(queryFolderPath);
 await executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder, sourceFile);
 await generateSummaryResults(resultFilePaths);
+backUpExperiment(experimentName, join("./", RESULT_FOLDER), cloudfolder);
 
 async function executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder, sourceFile) {
     const queryFolder = join(queryFolderPath, "parsed");
@@ -116,12 +123,14 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                         results[queryName] = currentResult;
                         const resultFile = `${name}_result.json`;
                         await writeFile(join(RESULT_FOLDER, resultFile), JSON.stringify({ data: results }, null, 2));
+                        backUpExperiment(experimentName, join("./", RESULT_FOLDER), cloudfolder);
                         break;
                     }
 
                     results[queryName] = currentResult;
                     const resultFile = `${name}_result.json`;
                     await writeFile(join(RESULT_FOLDER, resultFile), JSON.stringify({ data: results }, null, 2));
+                    backUpExperiment(experimentName, join("./", RESULT_FOLDER), cloudfolder);
                 }
 
             }

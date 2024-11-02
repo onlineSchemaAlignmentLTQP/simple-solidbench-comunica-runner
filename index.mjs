@@ -79,7 +79,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                     }
                     if (effectiveSources !== undefined && !Array.isArray(effectiveSources)) {
                         delete currentResult[version];
-                        continue;
+                        break;
                     }
                     const command = createCommand(
                         runnerCommand,

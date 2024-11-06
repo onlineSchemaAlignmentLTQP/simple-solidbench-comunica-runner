@@ -130,6 +130,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                     results[queryName] = currentResult;
                     const resultFile = `${name}_result.json`;
                     await writeFile(join(RESULT_FOLDER, resultFile), JSON.stringify({ data: results }, null, 2));
+                    await generateSummaryResults(resultFilePaths);
                     backUpExperiment(experimentName, join("./", RESULT_FOLDER), cloudfolder);
                 }
 

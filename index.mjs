@@ -7,7 +7,7 @@ import { generateSummaryResults } from './resultSummaryBuilder.mjs';
 import { backUpExperiment } from './backupIDlabCloud.mjs';
 
 const RESULT_REGEX = /response start\n(.*)\nresponse end/u;
-const HTTP_REQUEST_IDENTIFIER = "INFO: Requesting";
+const HTTP_REQUEST_IDENTIFIER = '"msg":"Requesting';
 
 const program = new Command();
 program

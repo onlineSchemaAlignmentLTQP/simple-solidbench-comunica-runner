@@ -13,6 +13,7 @@ program
     .parse(process.argv);
 
 const options = program.opts();
+const configFileText = (await readFile(options.configFilePath)).toString();
 const configPaths = JSON.parse(configFileText).data;
 const RESULT_FOLDER = options.output;
 

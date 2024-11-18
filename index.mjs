@@ -99,7 +99,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                     );
                     try {
                         const { stdout, stderr, error } = spawnSync(command[0], command[1], { timeout: timeout + 2000, maxBuffer: undefined });
-                        console.log(String(stderr));
+                        console.log(String(stdout));
                         if (error && error.code === 'ETIMEDOUT') {
                             currentResult[version] = {
                                 timeout: timeout,
@@ -111,7 +111,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                         }
                         const stdoutSerialized = JSON.parse(RESULT_REGEX.exec(String(stdout))[1]);
                         stdoutSerialized["n_results"] = stdoutSerialized["results"].length;
-                        stdoutSerialized["n_http_requests"] = getInformationFromLog(String(stderr));
+                        stdoutSerialized["n_http_requests"] = getInformationFromLog(String(stdout));
                         currentResult[version].push(stdoutSerialized);
                         await sleep(5000);
                     } catch (err) {

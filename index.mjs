@@ -99,6 +99,8 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                     );
                     try {
                         const { stdout, stderr, error } = spawnSync(command[0], command[1], { timeout: timeout + 2000, maxBuffer: undefined });
+                        console.log(String(stderr));
+                        console.log(String(stdout));
                         if (error && error.code === 'ETIMEDOUT') {
                             currentResult[version] = {
                                 timeout: timeout,
@@ -168,7 +170,6 @@ function sleep(ms) {
 
 function getInformationFromLog(content) {
     let numberHttpRequest = 0;
-    console.log(content);
     for (const line of content.split('\n')) {
         numberHttpRequest += fetchNumberOfHttpRequest(line);
     }

@@ -27,6 +27,7 @@ program
     .option('-m, --memorySize <number>', 'Timeout of the query in second', 8192 * 1.5)
     .option('-r, --repetition <number>', 'number of repetition of each queries', 50)
     .option('-hdt, --pathFragmentationFolder <string>', 'The path of the dataset folder for querying over HDT. When not specified, it will execute an LTQP query.')
+    .option('-rules', 'The path of the dataset folder for querying over HDT. When not specified, it will execute an LTQP query.')
 
     .parse(process.argv);
 
@@ -43,6 +44,7 @@ const pathFragmentationFolder = options.pathFragmentationFolder;
 const sourceFile = options.sourceFile;
 const experimentName = options.experimentName;
 const cloudfolder = options.cloudfolder;
+const useRules = options.rules;
 
 const RESULT_FOLDER = options.output;
 
@@ -88,6 +90,10 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                         delete currentResult[version];
                         break;
                     }
+                    let rulePath = undefined;
+                    if(useRules){
+                        rulePath = generateRuleFilePath(queryName, queryFolderPath)
+                    }
                     const command = createCommand(
                         runnerCommand,
                         configPath,
@@ -95,7 +101,8 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
                         memorySize,
                         pathFragmentationFolder,
                         timeout,
-                        effectiveSources
+                        effectiveSources,
+                        rulePath
                     );
                     try {
                         const { stdout, stderr, error } = spawnSync(command[0], command[1], { timeout: timeout + 2000, maxBuffer: undefined });
@@ -140,7 +147,7 @@ async function executeBenchmark(queryFolderPath, timeout, memorySize, configPath
     }
 }
 
-function createCommand(runnerCommand, configPath, query, memorySize, pathFragmentationFolder, timeout, sources) {
+function createCommand(runnerCommand, configPath, query, memorySize, pathFragmentationFolder, timeout, sources, rulePath) {
     const command = "node";
     const formattedQuery = query.replace(/(\r\n|\n|\r)/gm, " ");
 
@@ -152,6 +159,9 @@ function createCommand(runnerCommand, configPath, query, memorySize, pathFragmen
         '-t', timeout.toString(),
         '-w', String(10)
     ];
+    if(rulePath!==undefined){
+        args.push(...['-r', rulePath]);
+    }
     if (pathFragmentationFolder !== undefined) {
         args.push("-hdt");
         args.push(pathFragmentationFolder);
@@ -177,4 +187,8 @@ function getInformationFromLog(content) {
 
 function fetchNumberOfHttpRequest(line) {
     return line.includes(HTTP_REQUEST_IDENTIFIER) ? 1 : 0;
+}
+
+function generateRuleFilePath(queryName, queryFolderPath){
+    return join(queryFolderPath, "rules", `${queryName}.ttl`);
 }

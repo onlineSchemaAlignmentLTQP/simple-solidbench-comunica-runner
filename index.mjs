@@ -1,35 +1,65 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "path";
-import { spawnSync } from 'node:child_process';
-import { Command } from 'commander';
-import { buildQueries } from './queryBuilder.mjs'
-import { generateSummaryResults } from './resultSummaryBuilder.mjs';
-import { backUpExperiment } from './backupIDlabCloud.mjs';
+import { spawnSync } from "node:child_process";
+import { Command } from "commander";
+import { buildQueries } from "./queryBuilder.mjs";
+import { generateSummaryResults } from "./resultSummaryBuilder.mjs";
+import { backUpExperiment } from "./backupIDlabCloud.mjs";
 
 const RESULT_REGEX = /response start\n(.*)\nresponse end/u;
 const HTTP_REQUEST_IDENTIFIER = '"msg":"Requesting';
 
 const program = new Command();
 program
-    .name('evaluation')
-    .description('CLI program to run a SPARQL query using Comunica for the context of benchmarking')
-    .version('0.0.0')
+  .name("evaluation")
+  .description(
+    "CLI program to run a SPARQL query using Comunica for the context of benchmarking",
+  )
+  .version("0.0.0")
 
-    .requiredOption('-c, --configFilePath <string>', 'Path of a config file containing a JSON array of the format {"data":[[${config Path}, ${name of the config}]]} to be executed')
-    .requiredOption('-e, --runnerCommand <string>', 'command of the runner to be executed. It must accept the flags -q, -c, -t and -hdt being a query, the config a timeout and an option to run an HDT benchmark with path to a fragmentation')
-    .requiredOption('-o, --output <string>', 'result folder')
-    .requiredOption('-n, --experimentName <string>', 'name of the experiment')
+  .requiredOption(
+    "-c, --configFilePath <string>",
+    'Path of a config file containing a JSON array of the format {"data":[[${config Path}, ${name of the config}]]} to be executed',
+  )
+  .requiredOption(
+    "-e, --runnerCommand <string>",
+    "command of the runner to be executed. It must accept the flags -q, -c, -t and -hdt being a query, the config a timeout and an option to run an HDT benchmark with path to a fragmentation",
+  )
+  .requiredOption("-o, --output <string>", "result folder")
+  .requiredOption("-n, --experimentName <string>", "name of the experiment")
 
-    .option('-b, --cloudfolder <string>', 'will backup the experiment results to this cloud storage see ./cloudsend.sh script', undefined)
-    .option('-s, --sourceFile <string>', 'path of the source file', undefined)
-    .option('-q, --queryFolderPath <string>', 'path of the query to be executed', './queries')
-    .option('-t, --timeout <number>', 'Timeout of the query in second', 120)
-    .option('-m, --memorySize <number>', 'Timeout of the query in second', 8192 * 1.5)
-    .option('-r, --repetition <number>', 'number of repetition of each queries', 50)
-    .option('-hdt, --pathFragmentationFolder <string>', 'The path of the dataset folder for querying over HDT. When not specified, it will execute an LTQP query.')
-    .option('-rules', 'The path of the dataset folder for querying over HDT. When not specified, it will execute an LTQP query.')
+  .option(
+    "-b, --cloudfolder <string>",
+    "will backup the experiment results to this cloud storage see ./cloudsend.sh script",
+    undefined,
+  )
+  .option("-s, --sourceFile <string>", "path of the source file", undefined)
+  .option(
+    "-q, --queryFolderPath <string>",
+    "path of the query to be executed",
+    "./queries",
+  )
+  .option("-t, --timeout <number>", "Timeout of the query in second", 120)
+  .option(
+    "-m, --memorySize <number>",
+    "Timeout of the query in second",
+    8192 * 1.5,
+  )
+  .option(
+    "-r, --repetition <number>",
+    "number of repetition of each queries",
+    50,
+  )
+  .option(
+    "-hdt, --pathFragmentationFolder <string>",
+    "The path of the dataset folder for querying over HDT. When not specified, it will execute an LTQP query.",
+  )
+  .option(
+    "--rules",
+    "The path of the dataset folder for querying over HDT. When not specified, it will execute an LTQP query.",
+  )
 
-    .parse(process.argv);
+  .parse(process.argv);
 
 const options = program.opts();
 
@@ -48,147 +78,212 @@ const useRules = options.rules;
 
 const RESULT_FOLDER = options.output;
 
-const resultFilePaths = configPaths.map((x) => [join('./', RESULT_FOLDER, `${x[1]}_result.json`), join('./', RESULT_FOLDER, `summary_${x[1]}_result.json`)]);
+const resultFilePaths = configPaths.map((x) => [
+  join("./", RESULT_FOLDER, `${x[1]}_result.json`),
+  join("./", RESULT_FOLDER, `summary_${x[1]}_result.json`),
+]);
 
 await buildQueries(queryFolderPath);
-await executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder, sourceFile);
+await executeBenchmark(
+  queryFolderPath,
+  timeout,
+  memorySize,
+  configPaths,
+  nRepetition,
+  runnerCommand,
+  pathFragmentationFolder,
+  sourceFile,
+);
 await generateSummaryResults(resultFilePaths);
 backUpExperiment(experimentName, join("./", RESULT_FOLDER), cloudfolder);
 
-async function executeBenchmark(queryFolderPath, timeout, memorySize, configPaths, nRepetition, runnerCommand, pathFragmentationFolder, sourceFile) {
-    const queryFolder = join(queryFolderPath, "parsed");
-    const queriesFile = await readdir(queryFolder);
-    let sources = undefined;
-    const queries = [];
-    for (const file of queriesFile) {
-        if (file.includes(".gitkeep")) {
-            continue;
-        }
-        const fileCompletePath = join(queryFolder, file);
-        const queryName = file.replace(/\.[^/.]+$/, "").replace(/\.[^/.]+$/, "");
-        queries.push([JSON.parse(await readFile(fileCompletePath)), queryName]);
+async function executeBenchmark(
+  queryFolderPath,
+  timeout,
+  memorySize,
+  configPaths,
+  nRepetition,
+  runnerCommand,
+  pathFragmentationFolder,
+  sourceFile,
+) {
+  const queryFolder = join(queryFolderPath, "parsed");
+  const queriesFile = await readdir(queryFolder);
+  let sources = undefined;
+  const queries = [];
+  for (const file of queriesFile) {
+    if (file.includes(".gitkeep")) {
+      continue;
     }
+    const fileCompletePath = join(queryFolder, file);
+    const queryName = file.replace(/\.[^/.]+$/, "").replace(/\.[^/.]+$/, "");
+    queries.push([JSON.parse(await readFile(fileCompletePath)), queryName]);
+  }
 
-    if (sourceFile !== undefined) {
-        sources = JSON.parse(await readFile(sourceFile))
-    }
+  if (sourceFile !== undefined) {
+    sources = JSON.parse(await readFile(sourceFile));
+  }
 
-
-    for (const [configPath, name] of configPaths) {
-        const results = {};
-        for (const [queryObject, queryName] of queries) {
-            const currentResult = {};
-            for (const [version, query] of Object.entries(queryObject)) {
-                currentResult[version] = [];
-                for (let i = 0; i < nRepetition; ++i) {
-                    console.log(`New query started repetition(s) ${i} index ${queryName} version ${version} with engine ${configPath}`);
-                    let effectiveSources = undefined;
-                    if (sources !== undefined) {
-                        effectiveSources = sources[queryName] === undefined ? undefined : sources[queryName][version];
-                    }
-                    if (effectiveSources !== undefined && !Array.isArray(effectiveSources)) {
-                        delete currentResult[version];
-                        break;
-                    }
-                    let rulePath = undefined;
-                    if(useRules){
-                        rulePath = generateRuleFilePath(queryName, queryFolderPath)
-                    }
-                    const command = createCommand(
-                        runnerCommand,
-                        configPath,
-                        query,
-                        memorySize,
-                        pathFragmentationFolder,
-                        timeout,
-                        effectiveSources,
-                        rulePath
-                    );
-                    try {
-                        const { stdout, stderr, error } = spawnSync(command[0], command[1], { timeout: timeout + 2000, maxBuffer: undefined });
-                        console.log(String(stdout));
-                        if (error && error.code === 'ETIMEDOUT') {
-                            currentResult[version] = {
-                                timeout: timeout,
-                            };
-                            results[queryName] = currentResult;
-                            const resultFile = `${name}_result.json`;
-                            await writeFile(join(RESULT_FOLDER, resultFile), JSON.stringify({ data: results }, null, 2));
-                            break;
-                        }
-                        const stdoutSerialized = JSON.parse(RESULT_REGEX.exec(String(stdout))[1]);
-                        stdoutSerialized["n_results"] = stdoutSerialized["results"].length;
-                        stdoutSerialized["n_http_requests"] = getInformationFromLog(String(stdout));
-                        currentResult[version].push(stdoutSerialized);
-                        await sleep(5000);
-                    } catch (err) {
-                        console.log("error happen");
-                        console.log(command);
-                        console.error(String(err));
-                        currentResult[version] = {
-                            error: String(err),
-                        };
-                        results[queryName] = currentResult;
-                        const resultFile = `${name}_result.json`;
-                        await writeFile(join(RESULT_FOLDER, resultFile), JSON.stringify({ data: results }, null, 2));
-                        backUpExperiment(experimentName, join("./", RESULT_FOLDER), cloudfolder);
-                        break;
-                    }
-
-                    results[queryName] = currentResult;
-                    const resultFile = `${name}_result.json`;
-                    await writeFile(join(RESULT_FOLDER, resultFile), JSON.stringify({ data: results }, null, 2));
-                    await generateSummaryResults(resultFilePaths);
-                    backUpExperiment(experimentName, join("./", RESULT_FOLDER), cloudfolder);
-                }
-
+  for (const [configPath, name] of configPaths) {
+    const results = {};
+    for (const [queryObject, queryName] of queries) {
+      const currentResult = {};
+      for (const [version, query] of Object.entries(queryObject)) {
+        currentResult[version] = [];
+        for (let i = 0; i < nRepetition; ++i) {
+          console.log(
+            `New query started repetition(s) ${i} index ${queryName} version ${version} with engine ${configPath}`,
+          );
+          let effectiveSources = undefined;
+          if (sources !== undefined) {
+            effectiveSources =
+              sources[queryName] === undefined
+                ? undefined
+                : sources[queryName][version];
+          }
+          if (
+            effectiveSources !== undefined &&
+            !Array.isArray(effectiveSources)
+          ) {
+            delete currentResult[version];
+            break;
+          }
+          let rulePath = undefined;
+          if (useRules) {
+            rulePath = generateRuleFilePath(queryName, queryFolderPath);
+          }
+          const command = createCommand(
+            runnerCommand,
+            configPath,
+            query,
+            memorySize,
+            pathFragmentationFolder,
+            timeout,
+            effectiveSources,
+            rulePath,
+          );
+          try {
+            const { stdout, stderr, error } = spawnSync(
+              command[0],
+              command[1],
+              { timeout: timeout + 2000, maxBuffer: undefined },
+            );
+            console.log(String(stdout));
+            if (error && error.code === "ETIMEDOUT") {
+              currentResult[version] = {
+                timeout: timeout,
+              };
+              results[queryName] = currentResult;
+              const resultFile = `${name}_result.json`;
+              await writeFile(
+                join(RESULT_FOLDER, resultFile),
+                JSON.stringify({ data: results }, null, 2),
+              );
+              break;
             }
+            const stdoutSerialized = JSON.parse(
+              RESULT_REGEX.exec(String(stdout))[1],
+            );
+            stdoutSerialized["n_results"] = stdoutSerialized["results"].length;
+            stdoutSerialized["n_http_requests"] = getInformationFromLog(
+              String(stdout),
+            );
+            currentResult[version].push(stdoutSerialized);
+            await sleep(5000);
+          } catch (err) {
+            console.log("error happen");
+            console.log(command);
+            console.error(String(err));
+            currentResult[version] = {
+              error: String(err),
+            };
+            results[queryName] = currentResult;
+            const resultFile = `${name}_result.json`;
+            await writeFile(
+              join(RESULT_FOLDER, resultFile),
+              JSON.stringify({ data: results }, null, 2),
+            );
+            backUpExperiment(
+              experimentName,
+              join("./", RESULT_FOLDER),
+              cloudfolder,
+            );
+            break;
+          }
+
+          results[queryName] = currentResult;
+          const resultFile = `${name}_result.json`;
+          await writeFile(
+            join(RESULT_FOLDER, resultFile),
+            JSON.stringify({ data: results }, null, 2),
+          );
+          await generateSummaryResults(resultFilePaths);
+          backUpExperiment(
+            experimentName,
+            join("./", RESULT_FOLDER),
+            cloudfolder,
+          );
         }
+      }
     }
+  }
 }
 
-function createCommand(runnerCommand, configPath, query, memorySize, pathFragmentationFolder, timeout, sources, rulePath) {
-    const command = "node";
-    const formattedQuery = query.replace(/(\r\n|\n|\r)/gm, " ");
+function createCommand(
+  runnerCommand,
+  configPath,
+  query,
+  memorySize,
+  pathFragmentationFolder,
+  timeout,
+  sources,
+  rulePath,
+) {
+  const command = "node";
+  const formattedQuery = query.replace(/(\r\n|\n|\r)/gm, " ");
 
-    const args = [
-        `--max-old-space-size=${memorySize}`,
-        runnerCommand,
-        '-c', configPath,
-        '-q', formattedQuery,
-        '-t', timeout.toString(),
-        '-w', String(10)
-    ];
-    if(rulePath!==undefined){
-        args.push(...['-r', rulePath]);
-    }
-    if (pathFragmentationFolder !== undefined) {
-        args.push("-hdt");
-        args.push(pathFragmentationFolder);
-    }
-    if (sources !== undefined) {
-        args.push("-s");
-        args.push(JSON.stringify(sources));
-    }
-    return [command, args];
+  const args = [
+    `--max-old-space-size=${memorySize}`,
+    runnerCommand,
+    "-c",
+    configPath,
+    "-q",
+    formattedQuery,
+    "-t",
+    timeout.toString(),
+    "-w",
+    String(10),
+  ];
+  if (rulePath !== undefined) {
+    args.push(...["-r", rulePath]);
+  }
+  if (pathFragmentationFolder !== undefined) {
+    args.push("-hdt");
+    args.push(pathFragmentationFolder);
+  }
+  if (sources !== undefined) {
+    args.push("-s");
+    args.push(JSON.stringify(sources));
+  }
+  return [command, args];
 }
 
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getInformationFromLog(content) {
-    let numberHttpRequest = 0;
-    for (const line of content.split('\n')) {
-        numberHttpRequest += fetchNumberOfHttpRequest(line);
-    }
-    return numberHttpRequest;
+  let numberHttpRequest = 0;
+  for (const line of content.split("\n")) {
+    numberHttpRequest += fetchNumberOfHttpRequest(line);
+  }
+  return numberHttpRequest;
 }
 
 function fetchNumberOfHttpRequest(line) {
-    return line.includes(HTTP_REQUEST_IDENTIFIER) ? 1 : 0;
+  return line.includes(HTTP_REQUEST_IDENTIFIER) ? 1 : 0;
 }
 
-function generateRuleFilePath(queryName, queryFolderPath){
-    return join(queryFolderPath, "rules", `${queryName}.ttl`);
+function generateRuleFilePath(queryName, queryFolderPath) {
+  return join(queryFolderPath, "rules", `${queryName}.ttl`);
 }
